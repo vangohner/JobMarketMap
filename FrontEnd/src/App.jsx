@@ -144,7 +144,7 @@ export default function App() {
   const pointsFC = useMemo(() => toGeoJSON(rows), [rows]);
   const index = useMemo(() => {
     const sc = new Supercluster({
-      radius: 80,
+      radius: 90,
       maxZoom: 16,
       map: (p) => ({ titleCounts: { [p.title || "Job"]: 1 } }),
       reduce: (acc, p) => { for (const [t, c] of Object.entries(p.titleCounts)) acc.titleCounts[t] = (acc.titleCounts[t] || 0) + c; },
@@ -158,11 +158,31 @@ export default function App() {
   const getClustersForZoom = (z) => {
     const sc = indexRef.current;
     const feats = sc.getClusters([-180, -85, 180, 85], Math.max(0, Math.floor(z)));
-    return feats.map((f) =>
-      f.properties?.cluster
-        ? { ...f, properties: { ...f.properties, topTitle: topTitleFromCounts(f.properties.titleCounts) } }
-        : f
-    );
+    return feats.map((f) => {
+      if (!f.properties?.cluster) return f;
+
+      const counts = f.properties.titleCounts || {};
+      const total = f.properties.point_count || 0;
+      const sorted = sortCounts(counts); // [["RN",101],["CNA",23],...]
+      const [topName, topCount] = sorted[0] || ["Jobs", 0];
+      const topPct = total ? Math.round((topCount / total) * 100) : 0;
+
+      const topSummary = sorted
+        .slice(1, 3)
+        .map(([k, v]) => `${k} ${Math.round((v / total) * 100)}%`)
+        .join(" • ");
+
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          topTitle: topName,
+          topCount,
+          topPct,
+          topSummary,
+        },
+      };
+    });
   };
 
   const clearClusterMarkers = () => {
@@ -173,8 +193,12 @@ export default function App() {
   const renderClusterHTMLLabels = (feats) => {
     const map = mapRef.current; if (!map) return;
     clearClusterMarkers();
+
     for (const f of feats) {
       if (!f.properties?.cluster) continue;
+
+      const { topTitle = "Jobs", point_count = 0, topPct = 0, topSummary = "" } = f.properties;
+
       const el = document.createElement("div");
       el.setAttribute("aria-hidden", "true");
       el.style.cssText = [
@@ -183,13 +207,25 @@ export default function App() {
         "border: 1px solid #e5e7eb",
         "border-radius: 10px",
         "box-shadow: 0 6px 18px rgba(0,0,0,0.08)",
-        "padding: 4px 8px",
+        "padding: 6px 8px",
         "font: 11px/16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
         "color: #0b1021",
-        "white-space: nowrap",
+        "white-space: normal",
+        "overflow-wrap: anywhere",
+        "word-break: break-word",
+        "width: 170px",
+        "max-width: 190px",
+        "line-height: 1.35",
         "pointer-events: none",
+        "max-width: 260px",
       ].join(";");
-      el.textContent = `${f.properties.topTitle || "Jobs"} (${f.properties.point_count || 0})`;
+
+      // Title line + percentage
+      el.innerHTML = `
+        <div style="font-weight:700">${topTitle} • ${topPct}% <span style="color:#64748b">(${point_count})</span></div>
+        ${topSummary ? `<div style="color:#64748b; font-size:10px; margin-top:2px">${topSummary}</div>` : ""}
+      `;
+
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat(f.geometry.coordinates)
         .addTo(map);
