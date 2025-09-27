@@ -116,27 +116,31 @@ export default function App() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
 
-  // One-time CSS to improve wrapping in all popups
+  /* --------- Global CSS (wrap long titles, prevent overflow in popups) ---- */
   useEffect(() => {
     const style = document.createElement("style");
     style.innerHTML = `
-      .maplibregl-popup-content {
-        max-width: 440px !important;
+      .maplibregl-popup-content, .maplibregl-popup, .cluster-list {
+        max-width: 300px !important;
         white-space: normal !important;
         overflow-wrap: anywhere !important;
         word-break: break-word !important;
       }
       .cluster-list { list-style:none; padding:0; margin:0; max-height:300px; overflow:auto; }
-      .cluster-list a {
-        display:block; text-decoration:none; color:#0b1021;
-        white-space:normal; overflow-wrap:anywhere; word-break:break-word;
+      .cluster-list li { padding-right: 6px; border-bottom:1px solid #eef2f7; }
+      .job-link { display:block; color:#0b1021; text-decoration:none; }
+      .job-title { font-weight:600; font-size:12px; }
+      .job-sub { color:#4b5563; font-size:11px; }
+      .btn {
+        padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;
       }
+      .btn[disabled] { opacity:.5; cursor:default; }
     `;
     document.head.appendChild(style);
     return () => { try { document.head.removeChild(style); } catch {} };
   }, []);
 
-  /* ---------- Build features + cluster index; expose latest via a ref ------ */
+  /* ---------------- Build features + cluster index; keep latest in ref ---- */
   const pointsFC = useMemo(() => toGeoJSON(rows), [rows]);
   const index = useMemo(() => {
     const sc = new Supercluster({
@@ -183,7 +187,7 @@ export default function App() {
         "font: 11px/16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
         "color: #0b1021",
         "white-space: nowrap",
-        "pointer-events: none", // labels never block clicks
+        "pointer-events: none",
       ].join(";");
       el.textContent = `${f.properties.topTitle || "Jobs"} (${f.properties.point_count || 0})`;
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
@@ -195,11 +199,11 @@ export default function App() {
 
   const showPointPopup = (feature) => {
     const map = mapRef.current; if (!map) return;
-    const p = feature.properties;
-    const html = `<div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:240px; max-width:400px;">
+    const p = feature.properties || {};
+    const html = `<div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:240px;">
       <div style="font-weight:600">${p.title || "Job"}</div>
-      <div style="color:#4b5563">${p.company_name || ""}</div>
-      <div style="color:#4b5563">${p.location || ""}</div>
+      <div class="job-sub">${p.company_name || ""}</div>
+      <div class="job-sub">${p.location || ""}</div>
       ${p.normalized_salary ? `<div>$${Number(p.normalized_salary).toLocaleString()}</div>` : ""}
       ${p.formatted_work_type ? `<div>${p.formatted_work_type}</div>` : ""}
       ${p.formatted_experience_level ? `<div>Level: ${p.formatted_experience_level}</div>` : ""}
@@ -207,13 +211,15 @@ export default function App() {
       ${String(p.remote_allowed).trim() === "1" ? `<div>Remote allowed</div>` : ""}
     </div>`;
     popupRef.current?.remove();
-    popupRef.current = new maplibregl.Popup({ closeButton: true })
+    popupRef.current = new maplibregl.Popup({ 
+      //maxWidth: '480px',
+      closeButton: true })
       .setLngLat(feature.geometry.coordinates)
       .setHTML(html)
       .addTo(map);
   };
 
-  /* ------------- Robust cluster menu (handles stale cluster ids) ---------- */
+  /* ------------- Cluster menu (stale-id–proof + deterministic wiring) ----- */
   const CLUSTER_PAGE_SIZE = 15;
 
   function nearestLiveClusterAtZoom(targetLngLat, zoom) {
@@ -227,7 +233,8 @@ export default function App() {
     let best = Infinity, winner = null;
     for (const c of all) {
       const [x, y] = c.geometry.coordinates;
-      const d2 = (x - cx) * (x - cy) + (y - cy) * (y - cy); // simple metric
+      const dx = x - cx, dy = y - cy;
+      const d2 = dx * dx + dy * dy; // correct squared distance
       if (d2 < best) { best = d2; winner = c; }
     }
     return winner;
@@ -237,7 +244,6 @@ export default function App() {
     const map = mapRef.current; if (!map) return;
     const sc = indexRef.current;
 
-    // Resolve a valid cluster id; if stale, fallback to nearest live cluster
     let baseFeature = clusterFeature;
     let cid = clusterFeature?.properties?.cluster_id;
     let total = clusterFeature?.properties?.point_count || 0;
@@ -245,7 +251,7 @@ export default function App() {
     const ensureLeaves = () => {
       try {
         return sc.getLeaves(cid, CLUSTER_PAGE_SIZE, offset);
-      } catch (e) {
+      } catch {
         const near = nearestLiveClusterAtZoom(clusterFeature.geometry.coordinates, map.getZoom());
         if (!near) return [];
         baseFeature = near;
@@ -262,10 +268,10 @@ export default function App() {
       const company = p.company_name || p.company || "";
       const loc = p.location || "";
       const [lon, lat] = leaf.geometry.coordinates;
-      return `<li style="margin:0; padding:6px 0; border-bottom:1px solid #eef2f7">
+      return `<li>
         <a href="#" class="job-link" data-i="${i}" data-lon="${lon}" data-lat="${lat}">
-          <div style="font-weight:600; font-size:12px;">${title}</div>
-          <div style="color:#4b5563; font-size:11px;">${company}${loc ? " • " + loc : ""}</div>
+          <div class="job-title">${title}</div>
+          <div class="job-sub">${company}${loc ? " • " + loc : ""}</div>
         </a>
       </li>`;
     }).join("");
@@ -274,38 +280,37 @@ export default function App() {
     const hasNext = offset + CLUSTER_PAGE_SIZE < total;
 
     const html = `
-      <div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:280px; max-width:440px;">
+      <div class="cluster-popup" style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:280px;">
         <div style="font-weight:700; margin-bottom:6px">Jobs in cluster (${total})</div>
         <ol class="cluster-list">
           ${items || `<li style="padding:6px 0; color:#64748b">No jobs found.</li>`}
         </ol>
         <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px; flex-wrap:wrap">
-          <button data-btn="prev" ${hasPrev ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Prev</button>
+          <button class="btn" data-btn="prev" ${hasPrev ? "" : "disabled"}>Prev</button>
           <div style="flex:1; text-align:center; color:#64748b; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
-          <button data-btn="next" ${hasNext ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Next</button>
-          <button data-btn="zoom" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Zoom to cluster</button>
-          <button data-btn="close" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Close</button>
+          <button class="btn" data-btn="next" ${hasNext ? "" : "disabled"}>Next</button>
+          <button class="btn" data-btn="zoom">Zoom to cluster</button>
+          <button class="btn" data-btn="close">Close</button>
         </div>
       </div>
     `;
 
     popupRef.current?.remove();
-    const popup = new maplibregl.Popup({ closeButton: false })
+    const popup = new maplibregl.Popup({
+      //maxWidth: '480px',
+      closeButton: false })
       .setLngLat(baseFeature.geometry.coordinates)
       .setHTML(html)
       .addTo(map);
     popupRef.current = popup;
 
-    popup.on("open", () => {
+    // Deterministic wiring: on "open" and next frame (covers timing races)
+    const wire = () => {
       const root = popup.getElement();
+      if (!root || !root.isConnected) return;
 
       // Job links
       root.querySelectorAll(".job-link").forEach((a, i) => {
-        a.style.textDecoration = "none";
-        a.style.color = "#0b1021";
-        a.style.whiteSpace = "normal";
-        a.style.overflowWrap = "anywhere";
-        a.style.wordBreak = "break-word";
         a.addEventListener("click", (e) => {
           e.preventDefault(); e.stopPropagation();
           const leaf = leaves[i]; if (!leaf) return;
@@ -328,12 +333,13 @@ export default function App() {
         map.easeTo({ center: baseFeature.geometry.coordinates, zoom: z + 0.5, duration: 500 });
       });
       on('button[data-btn="close"]', () => popup.remove());
-    });
+    };
+    popup.on("open", wire);
+    requestAnimationFrame(wire);
   };
 
   /* ----------------------------- Map lifecycle ---------------------------- */
   useEffect(() => {
-    // StrictMode-proof
     if (mapRef.current) { try { mapRef.current.remove(); } catch {} mapRef.current = null; }
     if (!containerRef.current) return;
 
@@ -367,7 +373,7 @@ export default function App() {
         }
       });
 
-      // Transparent hit layers for reliable clicks (slightly >0 opacity)
+      // Transparent hit layers (larger radius) for reliable clicks
       map.addLayer({
         id: "cluster-hit", type: "circle", source: "jobs", filter: ["has", "cluster"],
         paint: {
@@ -383,7 +389,7 @@ export default function App() {
         }
       });
 
-      // Click handlers target hit layers (work even if labels overlay)
+      // Click handlers on hit layers
       map.on("click", "cluster-hit", (e) => {
         const f = e.features?.[0]; if (!f) return;
         e.preventDefault();
@@ -395,7 +401,7 @@ export default function App() {
         showPointPopup(f);
       });
 
-      // Hover cursor
+      // Cursor
       const hover = (on) => () => { map.getCanvas().style.cursor = on ? "pointer" : ""; };
       map.on("mouseenter", "cluster-hit", hover(true));
       map.on("mouseleave", "cluster-hit", hover(false));
@@ -413,7 +419,7 @@ export default function App() {
     };
   }, []);
 
-  // Push visible clusters to the map whenever index changes (e.g., CSV load)
+  // Update visible clusters on index changes (e.g., after CSV load)
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const src = map.getSource("jobs"); if (!src || !("setData" in src)) return;
@@ -422,7 +428,7 @@ export default function App() {
     renderClusterHTMLLabels(feats);
   }, [index]);
 
-  // Live updates on pan/zoom — binds once but pulls latest index via ref
+  // Live updates on pan/zoom
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const update = () => {
@@ -441,7 +447,7 @@ export default function App() {
       map.off("zoomend", update);
       map.off("resize", update);
     };
-  }, []); // uses indexRef inside
+  }, []); // uses indexRef internally
 
   /* ------------------------------- CSV Loader UI --------------------------- */
   const onCSVFile = (file) => {
