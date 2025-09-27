@@ -50,15 +50,14 @@ def fetch_jobs_by_location(city=None, state=None, limit=50):
         return [dict(r) for r in cur.fetchall()]
 
 
-def fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max, limit=100):
+def fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max):
     sql = """
     SELECT *
     FROM jobs
     WHERE lat BETWEEN %s AND %s
       AND long BETWEEN %s AND %s
-    LIMIT %s
     """
     with get_cursor() as cur:
-        cur.execute(sql, (lat_min, lat_max, lon_min, lon_max, limit))
+        cur.execute(sql, (lat_min, lat_max, lon_min, lon_max))
         return [dict(r) for r in cur.fetchall()]
 
