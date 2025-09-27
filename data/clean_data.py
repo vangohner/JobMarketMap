@@ -1,6 +1,8 @@
 import pandas as pd
+import pgeocode
+import numpy as np
 
-df = pd.read_csv("postings.csv")
+df = pd.read_csv("data/job_data.csv")
 
 # remove the columns we don't want
 try:
@@ -45,6 +47,18 @@ df = df.dropna(
         "zip_code",
     ]
 )
+
+# add latitude and longitude coordinates to the location
+df["lat"] = np.nan
+df["long"] = np.nan
+
+nomi = pgeocode.Nominatim('us')
+for index, row in df.iterrows():
+    location = nomi.query_postal_code(int(row["zip_code"]))
+    df.at[index, "lat"] = location.latitude
+    df.at[index, "long"] = location.longitude
+    
+df = df.dropna(subset=["lat", "long",])
 
 df.to_csv("data/job_data.csv", index = False)
 
