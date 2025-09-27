@@ -3,7 +3,7 @@ import maplibregl from "maplibre-gl";
 import Supercluster from "supercluster";
 import Papa from "papaparse";
 
-// ----------------------- OSM Raster Style (no API key) ----------------------
+/* ----------------------- OSM Raster Style (no API key) -------------------- */
 const OSM_RASTER_STYLE = {
   version: 8,
   name: "OSM Raster",
@@ -27,32 +27,32 @@ const OSM_RASTER_STYLE = {
   ],
 };
 
-// --------------------------- Simple geocoding helpers -----------------------
+/* --------------------------- Simple geocoding helpers --------------------- */
 const STATE_CENTROIDS = {
   AL: [-86.9023, 32.3182], AK: [-152.4044, 64.2008], AZ: [-111.0937, 34.0489],
-  AR: [-92.3731, 35.2010], CA: [-119.4179, 36.7783], CO: [-105.7821, 39.5501],
+  AR: [-92.3731, 35.201], CA: [-119.4179, 36.7783], CO: [-105.7821, 39.5501],
   CT: [-72.6978, 41.6032], DE: [-75.5277, 38.9108], FL: [-81.5158, 27.6648],
-  GA: [-82.9001, 32.1656], HI: [-155.5828, 19.8968], IA: [-93.0977, 41.8780],
-  ID: [-114.7420, 44.0682], IL: [-89.3985, 40.6331], IN: [-86.1349, 40.2672],
-  KS: [-98.4842, 39.0119], KY: [-84.2700, 37.8393], LA: [-91.9623, 30.9843],
+  GA: [-82.9001, 32.1656], HI: [-155.5828, 19.8968], IA: [-93.0977, 41.878],
+  ID: [-114.742, 44.0682], IL: [-89.3985, 40.6331], IN: [-86.1349, 40.2672],
+  KS: [-98.4842, 39.0119], KY: [-84.27, 37.8393], LA: [-91.9623, 30.9843],
   MA: [-71.3824, 42.4072], MD: [-76.6413, 39.0458], ME: [-69.4455, 45.2538],
   MI: [-85.6024, 44.3148], MN: [-94.6859, 46.7296], MO: [-91.8318, 37.9643],
   MS: [-89.3985, 32.3547], MT: [-110.3626, 46.8797], NC: [-79.0193, 35.7596],
-  ND: [-101.0020, 47.5515], NE: [-99.9018, 41.4925], NH: [-71.5724, 43.1939],
+  ND: [-101.002, 47.5515], NE: [-99.9018, 41.4925], NH: [-71.5724, 43.1939],
   NJ: [-74.4057, 40.0583], NM: [-105.8701, 34.5199], NV: [-116.4194, 38.8026],
-  NY: [-75.0000, 43.0000], OH: [-82.9071, 40.4173], OK: [-97.0929, 35.0078],
+  NY: [-75, 43], OH: [-82.9071, 40.4173], OK: [-97.0929, 35.0078],
   OR: [-120.5542, 43.8041], PA: [-77.1945, 41.2033], RI: [-71.4774, 41.5801],
   SC: [-81.1637, 33.8361], SD: [-99.9018, 43.9695], TN: [-86.5804, 35.5175],
-  TX: [-99.9018, 31.9686], UT: [-111.0937, 39.3210], VA: [-78.6569, 37.4316],
+  TX: [-99.9018, 31.9686], UT: [-111.0937, 39.321], VA: [-78.6569, 37.4316],
   VT: [-72.5778, 44.5588], WA: [-120.7401, 47.7511], WI: [-89.6165, 43.7844],
   WV: [-80.4549, 38.5976], WY: [-107.2903, 43.0759], DC: [-77.0369, 38.9072],
 };
 const CITY_CENTROIDS = {
   "New York, NY": [-74.006, 40.7128], "Los Angeles, CA": [-118.2437, 34.0522],
   "Chicago, IL": [-87.6298, 41.8781], "Houston, TX": [-95.3698, 29.7604],
-  "Phoenix, AZ": [-112.0740, 33.4484], "Philadelphia, PA": [-75.1652, 39.9526],
+  "Phoenix, AZ": [-112.074, 33.4484], "Philadelphia, PA": [-75.1652, 39.9526],
   "San Antonio, TX": [-98.4936, 29.4241], "San Diego, CA": [-117.1611, 32.7157],
-  "Dallas, TX": [-96.7970, 32.7767], "San Jose, CA": [-121.8863, 37.3382],
+  "Dallas, TX": [-96.797, 32.7767], "San Jose, CA": [-121.8863, 37.3382],
   "Austin, TX": [-97.7431, 30.2672], "San Francisco, CA": [-122.4194, 37.7749],
   "Seattle, WA": [-122.3321, 47.6062], "Boston, MA": [-71.0589, 42.3601],
   "Miami, FL": [-80.1918, 25.7617], "Denver, CO": [-104.9903, 39.7392],
@@ -88,7 +88,7 @@ function coordsForRow(row) {
   return [base[0] + dx, base[1] + dy];
 }
 
-// ------------------------------ GeoJSON utils -------------------------------
+/* ------------------------------ GeoJSON utils ----------------------------- */
 const toGeoJSON = (rows) => ({
   type: "FeatureCollection",
   features: rows
@@ -106,7 +106,7 @@ const topTitleFromCounts = (counts) => {
 };
 const sortCounts = (counts) => Object.entries(counts || {}).sort((a, b) => b[1] - a[1]);
 
-// -------------------------------- Component ---------------------------------
+/* -------------------------------- Component ------------------------------- */
 export default function App() {
   const mapRef = useRef(null);
   const containerRef = useRef(null);
@@ -116,7 +116,27 @@ export default function App() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
 
-  // Build features + cluster index
+  // One-time CSS to improve wrapping in all popups
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.innerHTML = `
+      .maplibregl-popup-content {
+        max-width: 440px !important;
+        white-space: normal !important;
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+      }
+      .cluster-list { list-style:none; padding:0; margin:0; max-height:300px; overflow:auto; }
+      .cluster-list a {
+        display:block; text-decoration:none; color:#0b1021;
+        white-space:normal; overflow-wrap:anywhere; word-break:break-word;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { try { document.head.removeChild(style); } catch {} };
+  }, []);
+
+  /* ---------- Build features + cluster index; expose latest via a ref ------ */
   const pointsFC = useMemo(() => toGeoJSON(rows), [rows]);
   const index = useMemo(() => {
     const sc = new Supercluster({
@@ -128,9 +148,12 @@ export default function App() {
     sc.load(pointsFC.features);
     return sc;
   }, [pointsFC]);
+  const indexRef = useRef(index);
+  useEffect(() => { indexRef.current = index; }, [index]);
 
   const getClustersForZoom = (z) => {
-    const feats = index.getClusters([-180, -85, 180, 85], Math.max(0, Math.floor(z)));
+    const sc = indexRef.current;
+    const feats = sc.getClusters([-180, -85, 180, 85], Math.max(0, Math.floor(z)));
     return feats.map((f) =>
       f.properties?.cluster
         ? { ...f, properties: { ...f.properties, topTitle: topTitleFromCounts(f.properties.titleCounts) } }
@@ -149,6 +172,7 @@ export default function App() {
     for (const f of feats) {
       if (!f.properties?.cluster) continue;
       const el = document.createElement("div");
+      el.setAttribute("aria-hidden", "true");
       el.style.cssText = [
         "transform: translate(-50%, -100%)",
         "background: rgba(255,255,255,0.96)",
@@ -159,7 +183,7 @@ export default function App() {
         "font: 11px/16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
         "color: #0b1021",
         "white-space: nowrap",
-        "pointer-events: none",
+        "pointer-events: none", // labels never block clicks
       ].join(";");
       el.textContent = `${f.properties.topTitle || "Jobs"} (${f.properties.point_count || 0})`;
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
@@ -172,7 +196,7 @@ export default function App() {
   const showPointPopup = (feature) => {
     const map = mapRef.current; if (!map) return;
     const p = feature.properties;
-    const html = `<div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:240px">
+    const html = `<div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:240px; max-width:400px;">
       <div style="font-weight:600">${p.title || "Job"}</div>
       <div style="color:#4b5563">${p.company_name || ""}</div>
       <div style="color:#4b5563">${p.location || ""}</div>
@@ -189,27 +213,59 @@ export default function App() {
       .addTo(map);
   };
 
-  // NEW: Cluster menu popup (paginated leaves)
+  /* ------------- Robust cluster menu (handles stale cluster ids) ---------- */
   const CLUSTER_PAGE_SIZE = 15;
+
+  function nearestLiveClusterAtZoom(targetLngLat, zoom) {
+    const sc = indexRef.current;
+    const z = Math.max(0, Math.floor(zoom || 0));
+    const all = sc.getClusters([-180, -85, 180, 85], z).filter(
+      (f) => f.properties && f.properties.cluster
+    );
+    if (!all.length) return null;
+    const [cx, cy] = targetLngLat;
+    let best = Infinity, winner = null;
+    for (const c of all) {
+      const [x, y] = c.geometry.coordinates;
+      const d2 = (x - cx) * (x - cy) + (y - cy) * (y - cy); // simple metric
+      if (d2 < best) { best = d2; winner = c; }
+    }
+    return winner;
+  }
+
   const showClusterMenu = (clusterFeature, offset = 0) => {
     const map = mapRef.current; if (!map) return;
-    const cid = clusterFeature.properties.cluster_id;
-    const total = clusterFeature.properties.point_count || 0;
+    const sc = indexRef.current;
 
-    // get a page of original points in this cluster
-    const leaves = index.getLeaves(cid, CLUSTER_PAGE_SIZE, offset);
+    // Resolve a valid cluster id; if stale, fallback to nearest live cluster
+    let baseFeature = clusterFeature;
+    let cid = clusterFeature?.properties?.cluster_id;
+    let total = clusterFeature?.properties?.point_count || 0;
 
-    const listItems = leaves.map((leaf, i) => {
+    const ensureLeaves = () => {
+      try {
+        return sc.getLeaves(cid, CLUSTER_PAGE_SIZE, offset);
+      } catch (e) {
+        const near = nearestLiveClusterAtZoom(clusterFeature.geometry.coordinates, map.getZoom());
+        if (!near) return [];
+        baseFeature = near;
+        cid = near.properties.cluster_id;
+        total = near.properties.point_count || 0;
+        return sc.getLeaves(cid, CLUSTER_PAGE_SIZE, offset);
+      }
+    };
+
+    const leaves = ensureLeaves();
+    const items = leaves.map((leaf, i) => {
       const p = leaf.properties || {};
       const title = p.title || "Job";
       const company = p.company_name || p.company || "";
       const loc = p.location || "";
-      // embed coords so clicks can open the point popup
       const [lon, lat] = leaf.geometry.coordinates;
       return `<li style="margin:0; padding:6px 0; border-bottom:1px solid #eef2f7">
-        <a href="#" class="job-link" data-i="${i}" data-lon="${lon}" data-lat="${lat}" style="text-decoration:none; color:#0b1021">
-          <div style="font-weight:600; font-size:12px">${title}</div>
-          <div style="color:#4b5563; font-size:11px">${company}${loc ? " • " + loc : ""}</div>
+        <a href="#" class="job-link" data-i="${i}" data-lon="${lon}" data-lat="${lat}">
+          <div style="font-weight:600; font-size:12px;">${title}</div>
+          <div style="color:#4b5563; font-size:11px;">${company}${loc ? " • " + loc : ""}</div>
         </a>
       </li>`;
     }).join("");
@@ -218,67 +274,64 @@ export default function App() {
     const hasNext = offset + CLUSTER_PAGE_SIZE < total;
 
     const html = `
-      <div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:280px; max-width:360px">
+      <div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:280px; max-width:440px;">
         <div style="font-weight:700; margin-bottom:6px">Jobs in cluster (${total})</div>
-        <ol style="list-style:none; padding:0; margin:0; max-height:260px; overflow:auto">
-          ${listItems || `<li style="padding:6px 0; color:#64748b">No jobs found.</li>`}
+        <ol class="cluster-list">
+          ${items || `<li style="padding:6px 0; color:#64748b">No jobs found.</li>`}
         </ol>
-        <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px">
-          <button id="prev-page" ${hasPrev ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:${hasPrev ? "pointer" : "default"}">Prev</button>
+        <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px; flex-wrap:wrap">
+          <button data-btn="prev" ${hasPrev ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Prev</button>
           <div style="flex:1; text-align:center; color:#64748b; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
-          <button id="next-page" ${hasNext ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:${hasNext ? "pointer" : "default"}">Next</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px">
-          <button id="zoom-in-btn" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer">Zoom to cluster</button>
-          <button id="close-popup" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer">Close</button>
+          <button data-btn="next" ${hasNext ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Next</button>
+          <button data-btn="zoom" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Zoom to cluster</button>
+          <button data-btn="close" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff;">Close</button>
         </div>
       </div>
     `;
 
     popupRef.current?.remove();
     const popup = new maplibregl.Popup({ closeButton: false })
-      .setLngLat(clusterFeature.geometry.coordinates)
+      .setLngLat(baseFeature.geometry.coordinates)
       .setHTML(html)
       .addTo(map);
     popupRef.current = popup;
 
-    // wire up item clicks (use closure's `leaves`)
     popup.on("open", () => {
-      // open job popup on click
-      const links = document.querySelectorAll(".job-link");
-      links.forEach((a) => {
+      const root = popup.getElement();
+
+      // Job links
+      root.querySelectorAll(".job-link").forEach((a, i) => {
+        a.style.textDecoration = "none";
+        a.style.color = "#0b1021";
+        a.style.whiteSpace = "normal";
+        a.style.overflowWrap = "anywhere";
+        a.style.wordBreak = "break-word";
         a.addEventListener("click", (e) => {
-          e.preventDefault();
-          const i = Number(a.getAttribute("data-i"));
-          const leaf = leaves[i];
-          if (!leaf) return;
+          e.preventDefault(); e.stopPropagation();
+          const leaf = leaves[i]; if (!leaf) return;
           map.easeTo({ center: leaf.geometry.coordinates, zoom: Math.max(map.getZoom(), 8), duration: 400 });
           showPointPopup(leaf);
-        });
+        }, { passive: false });
       });
 
-      // pagination
-      const prev = document.getElementById("prev-page");
-      const next = document.getElementById("next-page");
-      if (prev) prev.onclick = () => showClusterMenu(clusterFeature, Math.max(0, offset - CLUSTER_PAGE_SIZE));
-      if (next) next.onclick = () => showClusterMenu(clusterFeature, offset + CLUSTER_PAGE_SIZE);
-
-      // zoom to cluster
-      const zoomBtn = document.getElementById("zoom-in-btn");
-      if (zoomBtn) {
-        zoomBtn.onclick = () => {
-          const z = Math.min(index.getClusterExpansionZoom(cid), 12);
-          map.easeTo({ center: clusterFeature.geometry.coordinates, zoom: z + 0.5, duration: 500 });
-        };
-      }
-
-      // close
-      const closeBtn = document.getElementById("close-popup");
-      if (closeBtn) closeBtn.onclick = () => popup.remove();
+      // Buttons
+      const on = (sel, fn) => {
+        const b = root.querySelector(sel);
+        if (b) b.addEventListener("click", (e) => { e.preventDefault(); e.stopPropagation(); fn(); }, { passive: false });
+      };
+      on('button[data-btn="prev"]', () => showClusterMenu(baseFeature, Math.max(0, offset - CLUSTER_PAGE_SIZE)));
+      on('button[data-btn="next"]', () => showClusterMenu(baseFeature, offset + CLUSTER_PAGE_SIZE));
+      on('button[data-btn="zoom"]', () => {
+        let z;
+        try { z = Math.min(indexRef.current.getClusterExpansionZoom(cid), 12); }
+        catch { z = Math.max(map.getZoom(), 7); }
+        map.easeTo({ center: baseFeature.geometry.coordinates, zoom: z + 0.5, duration: 500 });
+      });
+      on('button[data-btn="close"]', () => popup.remove());
     });
   };
 
-  // ----------------------------- Map lifecycle ------------------------------
+  /* ----------------------------- Map lifecycle ---------------------------- */
   useEffect(() => {
     // StrictMode-proof
     if (mapRef.current) { try { mapRef.current.remove(); } catch {} mapRef.current = null; }
@@ -297,12 +350,13 @@ export default function App() {
     const onLoad = () => {
       map.addSource("jobs", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
 
+      // Visible layers
       map.addLayer({
         id: "cluster-circles", type: "circle", source: "jobs", filter: ["has", "cluster"],
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 5, 14, 50, 22, 200, 32],
+          "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 5, 16, 50, 24, 200, 34],
           "circle-color": ["step", ["get", "point_count"], "#93c5fd", 20, "#60a5fa", 50, "#3b82f6", 150, "#1d4ed8"],
-          "circle-stroke-color": "#ffffff", "circle-stroke-width": 2, "circle-opacity": 0.9
+          "circle-stroke-color": "#ffffff", "circle-stroke-width": 2, "circle-opacity": 0.95
         }
       });
       map.addLayer({
@@ -313,15 +367,40 @@ export default function App() {
         }
       });
 
-      // clicks
-      map.on("click", "cluster-circles", (e) => {
+      // Transparent hit layers for reliable clicks (slightly >0 opacity)
+      map.addLayer({
+        id: "cluster-hit", type: "circle", source: "jobs", filter: ["has", "cluster"],
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["get", "point_count"], 5, 28, 50, 36, 200, 44],
+          "circle-color": "rgba(0,0,0,0.01)", "circle-opacity": 0.01
+        }
+      });
+      map.addLayer({
+        id: "job-hit", type: "circle", source: "jobs", filter: ["!", ["has", "cluster"]],
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 3, 14, 12, 22],
+          "circle-color": "rgba(0,0,0,0.01)", "circle-opacity": 0.01
+        }
+      });
+
+      // Click handlers target hit layers (work even if labels overlay)
+      map.on("click", "cluster-hit", (e) => {
         const f = e.features?.[0]; if (!f) return;
+        e.preventDefault();
         showClusterMenu(f, 0);
       });
-      map.on("click", "job-points", (e) => {
+      map.on("click", "job-hit", (e) => {
         const f = e.features?.[0]; if (!f) return;
+        e.preventDefault();
         showPointPopup(f);
       });
+
+      // Hover cursor
+      const hover = (on) => () => { map.getCanvas().style.cursor = on ? "pointer" : ""; };
+      map.on("mouseenter", "cluster-hit", hover(true));
+      map.on("mouseleave", "cluster-hit", hover(false));
+      map.on("mouseenter", "job-hit", hover(true));
+      map.on("mouseleave", "job-hit", hover(false));
     };
 
     if (map.loaded()) onLoad(); else map.on("load", onLoad);
@@ -334,7 +413,7 @@ export default function App() {
     };
   }, []);
 
-  // Recompute visible clusters when the index changes (e.g., after CSV load)
+  // Push visible clusters to the map whenever index changes (e.g., CSV load)
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
     const src = map.getSource("jobs"); if (!src || !("setData" in src)) return;
@@ -343,10 +422,9 @@ export default function App() {
     renderClusterHTMLLabels(feats);
   }, [index]);
 
-  // Live updates on pan/zoom — REBIND when `index` changes so closure is fresh
+  // Live updates on pan/zoom — binds once but pulls latest index via ref
   useEffect(() => {
     const map = mapRef.current; if (!map) return;
-
     const update = () => {
       const z = map.getZoom();
       const feats = getClustersForZoom(z);
@@ -354,20 +432,18 @@ export default function App() {
       if (src && "setData" in src) src.setData({ type: "FeatureCollection", features: feats });
       renderClusterHTMLLabels(feats);
     };
-
     map.on("moveend", update);
     map.on("zoomend", update);
     map.on("resize", update);
     update();
-
     return () => {
       map.off("moveend", update);
       map.off("zoomend", update);
       map.off("resize", update);
     };
-  }, [index]);
+  }, []); // uses indexRef inside
 
-  // ------------------------------- CSV Loader UI ----------------------------
+  /* ------------------------------- CSV Loader UI --------------------------- */
   const onCSVFile = (file) => {
     setError(null);
     Papa.parse(file, {
@@ -395,8 +471,6 @@ export default function App() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-
-      {/* UI overlay */}
       <div style={{
         position: "absolute", top: 12, left: 12, zIndex: 10,
         background: "rgba(255,255,255,0.95)", border: "1px solid #e5e7eb",
