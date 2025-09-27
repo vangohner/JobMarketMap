@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from typing import Optional
 import db
 import pysupercluster
+import numpy as np
 #from pysupercluster import SuperCluster
 
 app = FastAPI(title="Job Market API")
@@ -38,29 +39,28 @@ def jobs_in_bbox(
     zoom: int = Query(3)  # optional zoom parameter
 ):
     try:
-        # fetch jobs in bounding box
-        query_results = db.fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max)
+        # Fetch jobs from DB within bounding box
+        jobs = db.fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max)
 
-        # convert to GeoJSON features
-        points = [
-            {
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [j["long"], j["lat"]]},
-                "properties": {"title": j["title"], "job_id": j["job_id"]}
-            }
-            for j in query_results
-            if j["lat"] is not None and j["long"] is not None
-        ]
+        # Convert to GeoJSON features
+        valid_jobs = [job for job in jobs if job.get("lat") is not None and job.get("long") is not None]
+        points = np.array([(job["long"], job["lat"]) for job in valid_jobs])
 
-        # server-side clustering
+        # Create Supercluster, load points, get clusters
         sc = pysupercluster.SuperCluster(
-            radius=80,
+            points,
+            min_zoom=0,
             max_zoom=16,
-            map=lambda p: {"titleCounts": {p["properties"]["title"]: 1}},
-            reduce=lambda a, b: a["titleCounts"].update({k: a["titleCounts"].get(k,0)+v for k,v in b["titleCounts"].items()})
+            radius=80,
+            extent=512
         )
-        sc.load(points)
-        clusters = sc.get_clusters([lon_min, lat_min, lon_max, lat_max], zoom)
+
+        # Get clusters for the requested bbox and zoom
+        clusters = sc.getClusters(
+            top_left=(lon_min, lat_max),
+            bottom_right=(lon_max, lat_min),
+            zoom=zoom
+        )
 
         return {"results": clusters}
 
