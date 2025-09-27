@@ -43,10 +43,18 @@ def jobs_in_bbox(
     limit: int = Query(100, ge=1, le=500),
 ):
     try:
-        results = db.fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max, limit)
-        for j in results:
-            if j.get("description"):
-                j["description_preview"] = (j["description"][:400] + "..." if len(j["description"]) > 400 else j["description"])
+        query_results = db.fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max, limit)
+        results = []
+        for job in query_results:
+            results.append({
+                "job_id": job["job_id"],
+                "company_name": job["company_name"],
+                "title": job["title"],
+                "location": job["location"],
+                "lat": job["lat"],
+                "long": job["long"]
+            })
+        
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

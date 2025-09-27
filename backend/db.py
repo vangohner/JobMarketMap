@@ -38,27 +38,27 @@ def fetch_job_by_id(job_id):
 
 def fetch_jobs_by_location(city=None, state=None, limit=50):
     sql = """
-    SELECT j.*, l.city, l.state, l.country
-    FROM jobs j
-    JOIN locations l ON j.location_id = l.location_id
-    WHERE (%s IS NULL OR l.city = %s)
-      AND (%s IS NULL OR l.state = %s)
-    ORDER BY j.original_listed_time DESC NULLS LAST
+    SELECT *
+    FROM jobs
+    WHERE (%s IS NULL OR city = %s)
+      AND (%s IS NULL OR state = %s)
+    ORDER BY original_listed_time DESC NULLS LAST
     LIMIT %s
     """
     with get_cursor() as cur:
         cur.execute(sql, (city, city, state, state, limit))
         return [dict(r) for r in cur.fetchall()]
 
+
 def fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max, limit=100):
     sql = """
-    SELECT j.*, l.latitude, l.longitude
-    FROM jobs j
-    JOIN locations l ON j.location_id = l.location_id
-    WHERE l.latitude BETWEEN %s AND %s
-      AND l.longitude BETWEEN %s AND %s
+    SELECT *
+    FROM jobs
+    WHERE lat BETWEEN %s AND %s
+      AND long BETWEEN %s AND %s
     LIMIT %s
     """
     with get_cursor() as cur:
         cur.execute(sql, (lat_min, lat_max, lon_min, lon_max, limit))
         return [dict(r) for r in cur.fetchall()]
+
