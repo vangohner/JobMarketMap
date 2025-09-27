@@ -75,15 +75,12 @@ function hashToUnit(seed) {
   return (h >>> 0) / 4294967295;
 }
 function coordsForRow(row) {
-  // 1) explicit coords (accept lon|long)
   if (row.lat != null && (row.lon != null || row.long != null)) {
     const lon = row.lon ?? row.long;
     if (!Number.isNaN(row.lat) && !Number.isNaN(lon)) return [Number(lon), Number(row.lat)];
   }
-  // 2) city centroid if known
   const { city, state, key } = parseCityState(row.location);
   if (key && CITY_CENTROIDS[key]) return CITY_CENTROIDS[key];
-  // 3) state centroid + tiny deterministic jitter
   const base = state && STATE_CENTROIDS[state] ? STATE_CENTROIDS[state] : [-98.5795, 39.8283];
   const seed = row.job_id || row.zip_code || `${city || ""}${state || ""}`;
   const r1 = hashToUnit(seed), r2 = hashToUnit(String(seed) + "x");
@@ -98,11 +95,7 @@ const toGeoJSON = (rows) => ({
     .map((r) => {
       const c = coordsForRow(r);
       if (!c || isNaN(c[0]) || isNaN(c[1])) return null;
-      return {
-        type: "Feature",
-        geometry: { type: "Point", coordinates: c },
-        properties: { ...r }, // keep raw row fields
-      };
+      return { type: "Feature", geometry: { type: "Point", coordinates: c }, properties: { ...r } };
     })
     .filter(Boolean),
 });
@@ -176,38 +169,6 @@ export default function App() {
     }
   };
 
-  const showClusterPopup = (feature) => {
-    const map = mapRef.current; if (!map) return;
-    const counts = feature.properties?.titleCounts || {};
-    const top = sortCounts(counts).slice(0, 5);
-    const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    const html = [
-      `<div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:220px">`,
-      `<div style="font-weight:600; margin-bottom:6px">Cluster stats</div>`,
-      `<div style="margin-bottom:6px">Total jobs: <b>${total}</b></div>`,
-      `<ol style="padding-left:16px; margin:0 0 6px 0">`,
-      ...top.map(([t, c]) => `<li>${t} <span style="color:#4b5563">(${c})</span></li>`),
-      `</ol>`,
-      `<button id="zoom-in-btn" style="padding:6px 8px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer">Zoom in</button>`,
-      `</div>`,
-    ].join("");
-    popupRef.current?.remove();
-    const popup = new maplibregl.Popup({ closeButton: true })
-      .setLngLat(feature.geometry.coordinates)
-      .setHTML(html)
-      .addTo(map);
-    popupRef.current = popup;
-    popup.on("open", () => {
-      const btn = document.getElementById("zoom-in-btn");
-      if (btn) {
-        btn.onclick = () => {
-          const z = Math.min(index.getClusterExpansionZoom(feature.properties.cluster_id), 12);
-          map.easeTo({ center: feature.geometry.coordinates, zoom: z + 0.5, duration: 500 });
-        };
-      }
-    });
-  };
-
   const showPointPopup = (feature) => {
     const map = mapRef.current; if (!map) return;
     const p = feature.properties;
@@ -228,9 +189,98 @@ export default function App() {
       .addTo(map);
   };
 
+  // NEW: Cluster menu popup (paginated leaves)
+  const CLUSTER_PAGE_SIZE = 15;
+  const showClusterMenu = (clusterFeature, offset = 0) => {
+    const map = mapRef.current; if (!map) return;
+    const cid = clusterFeature.properties.cluster_id;
+    const total = clusterFeature.properties.point_count || 0;
+
+    // get a page of original points in this cluster
+    const leaves = index.getLeaves(cid, CLUSTER_PAGE_SIZE, offset);
+
+    const listItems = leaves.map((leaf, i) => {
+      const p = leaf.properties || {};
+      const title = p.title || "Job";
+      const company = p.company_name || p.company || "";
+      const loc = p.location || "";
+      // embed coords so clicks can open the point popup
+      const [lon, lat] = leaf.geometry.coordinates;
+      return `<li style="margin:0; padding:6px 0; border-bottom:1px solid #eef2f7">
+        <a href="#" class="job-link" data-i="${i}" data-lon="${lon}" data-lat="${lat}" style="text-decoration:none; color:#0b1021">
+          <div style="font-weight:600; font-size:12px">${title}</div>
+          <div style="color:#4b5563; font-size:11px">${company}${loc ? " • " + loc : ""}</div>
+        </a>
+      </li>`;
+    }).join("");
+
+    const hasPrev = offset > 0;
+    const hasNext = offset + CLUSTER_PAGE_SIZE < total;
+
+    const html = `
+      <div style="font:12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; min-width:280px; max-width:360px">
+        <div style="font-weight:700; margin-bottom:6px">Jobs in cluster (${total})</div>
+        <ol style="list-style:none; padding:0; margin:0; max-height:260px; overflow:auto">
+          ${listItems || `<li style="padding:6px 0; color:#64748b">No jobs found.</li>`}
+        </ol>
+        <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px">
+          <button id="prev-page" ${hasPrev ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:${hasPrev ? "pointer" : "default"}">Prev</button>
+          <div style="flex:1; text-align:center; color:#64748b; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
+          <button id="next-page" ${hasNext ? "" : "disabled"} style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:${hasNext ? "pointer" : "default"}">Next</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px">
+          <button id="zoom-in-btn" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer">Zoom to cluster</button>
+          <button id="close-popup" style="padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; cursor:pointer">Close</button>
+        </div>
+      </div>
+    `;
+
+    popupRef.current?.remove();
+    const popup = new maplibregl.Popup({ closeButton: false })
+      .setLngLat(clusterFeature.geometry.coordinates)
+      .setHTML(html)
+      .addTo(map);
+    popupRef.current = popup;
+
+    // wire up item clicks (use closure's `leaves`)
+    popup.on("open", () => {
+      // open job popup on click
+      const links = document.querySelectorAll(".job-link");
+      links.forEach((a) => {
+        a.addEventListener("click", (e) => {
+          e.preventDefault();
+          const i = Number(a.getAttribute("data-i"));
+          const leaf = leaves[i];
+          if (!leaf) return;
+          map.easeTo({ center: leaf.geometry.coordinates, zoom: Math.max(map.getZoom(), 8), duration: 400 });
+          showPointPopup(leaf);
+        });
+      });
+
+      // pagination
+      const prev = document.getElementById("prev-page");
+      const next = document.getElementById("next-page");
+      if (prev) prev.onclick = () => showClusterMenu(clusterFeature, Math.max(0, offset - CLUSTER_PAGE_SIZE));
+      if (next) next.onclick = () => showClusterMenu(clusterFeature, offset + CLUSTER_PAGE_SIZE);
+
+      // zoom to cluster
+      const zoomBtn = document.getElementById("zoom-in-btn");
+      if (zoomBtn) {
+        zoomBtn.onclick = () => {
+          const z = Math.min(index.getClusterExpansionZoom(cid), 12);
+          map.easeTo({ center: clusterFeature.geometry.coordinates, zoom: z + 0.5, duration: 500 });
+        };
+      }
+
+      // close
+      const closeBtn = document.getElementById("close-popup");
+      if (closeBtn) closeBtn.onclick = () => popup.remove();
+    });
+  };
+
   // ----------------------------- Map lifecycle ------------------------------
   useEffect(() => {
-    // StrictMode-proof: clean any previous instance
+    // StrictMode-proof
     if (mapRef.current) { try { mapRef.current.remove(); } catch {} mapRef.current = null; }
     if (!containerRef.current) return;
 
@@ -262,6 +312,16 @@ export default function App() {
           "circle-color": "#22c55e", "circle-stroke-color": "#0f172a", "circle-stroke-width": 1.5
         }
       });
+
+      // clicks
+      map.on("click", "cluster-circles", (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        showClusterMenu(f, 0);
+      });
+      map.on("click", "job-points", (e) => {
+        const f = e.features?.[0]; if (!f) return;
+        showPointPopup(f);
+      });
     };
 
     if (map.loaded()) onLoad(); else map.on("load", onLoad);
@@ -291,26 +351,19 @@ export default function App() {
       const z = map.getZoom();
       const feats = getClustersForZoom(z);
       const src = map.getSource("jobs");
-      if (src && "setData" in src) {
-        src.setData({ type: "FeatureCollection", features: feats });
-      }
+      if (src && "setData" in src) src.setData({ type: "FeatureCollection", features: feats });
       renderClusterHTMLLabels(feats);
     };
 
     map.on("moveend", update);
     map.on("zoomend", update);
     map.on("resize", update);
-    // optional: live while moving
-    // map.on("move", update);
-
-    // initial draw with the current index
     update();
 
     return () => {
       map.off("moveend", update);
       map.off("zoomend", update);
       map.off("resize", update);
-      // map.off("move", update);
     };
   }, [index]);
 
@@ -326,7 +379,7 @@ export default function App() {
         if (!data.length) setError("No valid rows found. Check headers and data.");
         setRows(data);
 
-        // Fit to data when loaded
+        // Fit to data
         const feats = toGeoJSON(data).features;
         const map = mapRef.current;
         if (map && feats.length) {
