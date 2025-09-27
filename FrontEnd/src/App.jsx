@@ -205,19 +205,19 @@ export default function App() {
         "transform: translate(-50%, -100%)",
         "background: rgba(255,255,255,0.96)",
         "border: 1px solid #e5e7eb",
-        "border-radius: 10px",
+        "border-radius: 8px",//changed from 10
         "box-shadow: 0 6px 18px rgba(0,0,0,0.08)",
-        "padding: 6px 8px",
-        "font: 11px/16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        "padding: 5px 5px",
+        "font: 10px/15px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",//original 11, 16
         "color: #0b1021",
         "white-space: normal",
         "overflow-wrap: anywhere",
         "word-break: break-word",
-        "width: 170px",
-        "max-width: 190px",
-        "line-height: 1.35",
+        "width: 150px",//original 170
+        "max-width: 120px",
+        "line-height: 1.2",
         "pointer-events: none",
-        "max-width: 260px",
+        "max-width: 230px",
       ].join(";");
 
       // Title line + percentage
