@@ -285,12 +285,12 @@ export default function App() {
         <ol class="cluster-list">
           ${items || `<li style="padding:6px 0; color:#64748b">No jobs found.</li>`}
         </ol>
-        <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px; flex-wrap:wrap">
-          <button class="btn" data-btn="prev" ${hasPrev ? "" : "disabled"}>Prev</button>
-          <div style="flex:1; text-align:center; color:#64748b; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
-          <button class="btn" data-btn="next" ${hasNext ? "" : "disabled"}>Next</button>
-          <button class="btn" data-btn="zoom">Zoom to cluster</button>
+        <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px; flex-wrap:wrap; align-items:center">
           <button class="btn" data-btn="close">Close</button>
+          <button class="btn" data-btn="prev" ${hasPrev ? "" : "disabled"}>Prev</button>
+          <div style="flex:1; text-align:center; vertical-align:bottom; color:#6f; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
+          <button class="btn" data-btn="next" ${hasNext ? "" : "disabled"}>Next</button>
+          <button class="btn" data-btn="zoom">Zoom</button>
         </div>
       </div>
     `;
@@ -488,9 +488,6 @@ export default function App() {
         <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>Load your CSV to populate the map.</div>
         <input type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && onCSVFile(e.target.files[0])} />
         {error && <div style={{ color: "#b91c1c", marginTop: 8, maxWidth: 320 }}>{error}</div>}
-        <div style={{ fontSize: 11, color: "#64748b", marginTop: 8, maxWidth: 360 }}>
-          Supported columns: <code>job_id, company_name, title, description, location, formatted_work_type, original_listed_time, remote_allowed, formatted_experience_level, skills_desc, normalized_salary, zip_code, lat, lon/long</code>.
-        </div>
       </div>
     </div>
   );
