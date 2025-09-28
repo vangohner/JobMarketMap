@@ -11,13 +11,14 @@ app = FastAPI(title="Job Market API")
 def health():
     return {"status": "ok"}
 
-@app.get("/jobs/title")
+@app.get("/jobs/filter")
 def jobs(
-    title: str = Query(...)
+    title: str = Query(...),
+    company: str = Query(...)
 ):
     try:
-        print(title)
-        query_results = db.fetch_titles_with_input(title)
+        
+        query_results = db.fetch_titles_with_input(title, company)
         
         results = []
         for job in query_results:

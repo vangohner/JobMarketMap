@@ -78,7 +78,7 @@ export default function App() {
   const callJobTitle = async () => {
       setError(null);
     try {
-      const response = await fetch(`/jobs/title?title=${filteredJob}`);
+      const response = await fetch(`/jobs/filter?title=${filteredJob}&company=${filteredCompany}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

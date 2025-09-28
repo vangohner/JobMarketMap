@@ -11,7 +11,10 @@ export function showPointPopup(map, popupRef, feature) {
     <div class="job-sub">${p.location || ""}</div>
     ${p.normalized_salary ? `<div>$${Number(p.normalized_salary).toLocaleString()}</div>` : ""}
     ${p.formatted_work_type ? `<div>${p.formatted_work_type}</div>` : ""}
-    ${p.formatted_experience_level ? `<div>Level: ${p.formatted_experience_level}</div>` : ""}
+    ${p.formatted_experience_level != null && p.formatted_experience_level !== "" && p.formatted_experience_level !== "NaN" && !Number.isNaN(p.formatted_experience_level)
+  ? `<div>Level: ${p.formatted_experience_level}</div>` 
+  : ""}
+
     ${p.original_listed_time ? `<div>Listed: ${new Date(p.original_listed_time).toLocaleDateString()}</div>` : ""}
     ${String(p.remote_allowed).trim() === "1" ? `<div>Remote allowed</div>` : ""}
   </div>`;
@@ -83,7 +86,7 @@ export function showClusterMenu(map, indexRef, popupRef, clusterFeature, offset 
       <div style="display:flex; gap:8px; justify-content:space-between; margin-top:8px; flex-wrap:wrap; align-items:center">
         <button class="btn" data-btn="close">Close</button>
         <button class="btn" data-btn="prev" ${hasPrev ? "" : "disabled"}>Prev</button>
-        <div style="flex:1; text-align:center; vertical-align:bottom; color:#6f; font-size:11px">${Math.floor(offset/CLUSTER_PAGE_SIZE)+1} / ${Math.max(1, Math.ceil(total/CLUSTER_PAGE_SIZE))}</div>
+        <div style="flex:1; text-align:center; vertical-align:bottom; color:#6f; font-size:11px">${Math.floor(offset / CLUSTER_PAGE_SIZE) + 1} / ${Math.max(1, Math.ceil(total / CLUSTER_PAGE_SIZE))}</div>
         <button class="btn" data-btn="next" ${hasNext ? "" : "disabled"}>Next</button>
         <button class="btn" data-btn="zoom">Zoom</button>
       </div>
