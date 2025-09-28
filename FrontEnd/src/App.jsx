@@ -144,7 +144,7 @@ export default function App() {
   const pointsFC = useMemo(() => toGeoJSON(rows), [rows]);
   const index = useMemo(() => {
     const sc = new Supercluster({
-      radius: 80,
+      radius: 90,
       maxZoom: 16,
       map: (p) => ({ titleCounts: { [p.title || "Job"]: 1 } }),
       reduce: (acc, p) => { for (const [t, c] of Object.entries(p.titleCounts)) acc.titleCounts[t] = (acc.titleCounts[t] || 0) + c; },
@@ -158,11 +158,31 @@ export default function App() {
   const getClustersForZoom = (z) => {
     const sc = indexRef.current;
     const feats = sc.getClusters([-180, -85, 180, 85], Math.max(0, Math.floor(z)));
-    return feats.map((f) =>
-      f.properties?.cluster
-        ? { ...f, properties: { ...f.properties, topTitle: topTitleFromCounts(f.properties.titleCounts) } }
-        : f
-    );
+    return feats.map((f) => {
+      if (!f.properties?.cluster) return f;
+
+      const counts = f.properties.titleCounts || {};
+      const total = f.properties.point_count || 0;
+      const sorted = sortCounts(counts); // [["RN",101],["CNA",23],...]
+      const [topName, topCount] = sorted[0] || ["Jobs", 0];
+      const topPct = total ? Math.round((topCount / total) * 100) : 0;
+
+      const topSummary = sorted
+        .slice(1, 3)
+        .map(([k, v]) => `${k} ${Math.round((v / total) * 100)}%`)
+        .join(" • ");
+
+      return {
+        ...f,
+        properties: {
+          ...f.properties,
+          topTitle: topName,
+          topCount,
+          topPct,
+          topSummary,
+        },
+      };
+    });
   };
 
   const clearClusterMarkers = () => {
@@ -173,23 +193,39 @@ export default function App() {
   const renderClusterHTMLLabels = (feats) => {
     const map = mapRef.current; if (!map) return;
     clearClusterMarkers();
+
     for (const f of feats) {
       if (!f.properties?.cluster) continue;
+
+      const { topTitle = "Jobs", point_count = 0, topPct = 0, topSummary = "" } = f.properties;
+
       const el = document.createElement("div");
       el.setAttribute("aria-hidden", "true");
       el.style.cssText = [
         "transform: translate(-50%, -100%)",
         "background: rgba(255,255,255,0.96)",
         "border: 1px solid #e5e7eb",
-        "border-radius: 10px",
+        "border-radius: 8px",//changed from 10
         "box-shadow: 0 6px 18px rgba(0,0,0,0.08)",
-        "padding: 4px 8px",
-        "font: 11px/16px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        "padding: 5px 5px",
+        "font: 10px/15px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",//original 11, 16
         "color: #0b1021",
-        "white-space: nowrap",
+        "white-space: normal",
+        "overflow-wrap: anywhere",
+        "word-break: break-word",
+        "width: 150px",//original 170
+        "max-width: 120px",
+        "line-height: 1.2",
         "pointer-events: none",
+        "max-width: 230px",
       ].join(";");
-      el.textContent = `${f.properties.topTitle || "Jobs"} (${f.properties.point_count || 0})`;
+
+      // Title line + percentage
+      el.innerHTML = `
+        <div style="font-weight:700">${topTitle} • ${topPct}% <span style="color:#64748b">(${point_count})</span></div>
+        ${topSummary ? `<div style="color:#64748b; font-size:10px; margin-top:2px">${topSummary}</div>` : ""}
+      `;
+
       const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat(f.geometry.coordinates)
         .addTo(map);
@@ -475,20 +511,146 @@ export default function App() {
   };
 
   return (
-    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      <div style={{
-        position: "absolute", top: 12, left: 12, zIndex: 10,
-        background: "rgba(255,255,255,0.95)", border: "1px solid #e5e7eb",
-        borderRadius: 12, padding: "10px 12px",
+  <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
+    <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
+
+    <div
+      style={{
+        position: "absolute",
+        top: 12,
+        left: 12,
+        zIndex: 10,
+        background: "rgba(255,255,255,0.95)",
+        border: "1px solid #e5e7eb",
+        borderRadius: 12,
+        padding: "10px 12px",
         font: "13px/18px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
-        color: "#0b1021", boxShadow: "0 6px 18px rgba(0,0,0,0.08)"
-      }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>US Job Map</div>
-        <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>Load your CSV to populate the map.</div>
-        <input type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && onCSVFile(e.target.files[0])} />
-        {error && <div style={{ color: "#b91c1c", marginTop: 8, maxWidth: 320 }}>{error}</div>}
+        color: "#0b1021",
+        boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+      }}
+    >
+      {/* 1) Title */}
+      <div style={{ fontWeight: 700, marginBottom: 6 }}>US Job Map</div>
+
+      {/* 2) Helper line */}
+      <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
+        Load your CSV to populate the map.
       </div>
+
+      {/* 3) Choose File */}
+      <input
+        type="file"
+        accept=".csv,text/csv"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) {
+            const kib = (f.size / 1024).toFixed(1);
+            const el = document.getElementById("chosen-file-info");
+            if (el) el.textContent = `${f.name} • ${kib} KB`;
+            onCSVFile(f);
+          } else {
+            const el = document.getElementById("chosen-file-info");
+            if (el) el.textContent = "No file selected";
+          }
+        }}
+        style={{ display: "block" }}
+      />
+
+      {/* (optional) show chosen file info */}
+      <div id="chosen-file-info" style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
+        No file selected
+      </div>
+
+      {/* 5) Apply button (now on its own line under file input) */}
+      <button
+        type="button"
+        style={{
+          display: "block",           /* <-- own line */
+          marginTop: 10,
+          padding: "6px 10px",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          background: "#fff",
+          font: "13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          cursor: "default",
+        }}
+        disabled
+        aria-disabled="true"
+        title="UI only — wire this up to apply the filter"
+      >
+        Apply
+      </button>
+
+      {/* 6) Filter by Job */}
+      <label
+        htmlFor="filter-job"
+        style={{
+          display: "block",
+          fontSize: 12,
+          color: "#475569",
+          marginTop: 12,
+          marginBottom: 6,
+        }}
+      >
+        Filter by Job
+      </label>
+
+      {/* 7) Example / textbox */}
+      <input
+        id="filter-job"
+        type="text"
+        placeholder="e.g. blah blah blah"
+        autoComplete="off"
+        spellCheck={false}
+        style={{
+          width: 260,
+          padding: "6px 8px",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          font: "13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          outline: "none",
+        }}
+      />
+      {/* 6) Filter by Job */}
+      <label
+        htmlFor="filter-Company"
+        style={{
+          display: "block",
+          fontSize: 12,
+          color: "#475569",
+          marginTop: 12,
+          marginBottom: 6,
+        }}
+      >
+        Filter by Company
+      </label>
+
+      {/* 7) Example / textbox */}
+      <input
+        id="filter-company"
+        type="text"
+        placeholder="e.g. blah blah blah"
+        autoComplete="off"
+        spellCheck={false}
+        style={{
+          width: 260,
+          padding: "6px 8px",
+          border: "1px solid #e5e7eb",
+          borderRadius: 8,
+          font: "13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+          outline: "none",
+        }}
+      />
+
+      {error && (
+        <div style={{ color: "#b91c1c", marginTop: 8, maxWidth: 320 }}>
+          {error}
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
+
+
+
 }
