@@ -49,7 +49,7 @@ export default function App() {
   const callJobTitle = async () => {
       setError(null);
     try {
-      const response = await fetch(`/jobs/title?title={filteredJob}`);
+      const response = await fetch(`/jobs/title?title=${filteredJob}`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -74,6 +74,10 @@ export default function App() {
       setError(String(err));
     }
   }
+
+  const handleInputChange = (event) => {
+    setFilteredJob(event.target.value); // update state on input change
+  };
 
 
   return (
@@ -109,8 +113,6 @@ export default function App() {
             font: "13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
             cursor: "default",
           }}
-          disabled
-          aria-disabled="true"
           title="UI only — wire this up to apply the filter"
           onClick={callJobTitle}
         >
@@ -126,6 +128,7 @@ export default function App() {
         <input
           id="filter-job"
           type="text"
+          onChange={handleInputChange}
           value={filteredJob}
           placeholder="e.g. blah blah blah"
           autoComplete="off"

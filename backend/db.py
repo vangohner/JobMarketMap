@@ -67,10 +67,10 @@ def fetch_titles_with_input(title):
     sql = """
     SELECT *
     FROM jobs
-    WHERE title LIKE %{title}%
+    WHERE title ~* %s
     """
     with get_cursor() as cur:
-        cur.execute(sql, (title))
+        cur.execute(sql, (f".*{title}.*",))
         return [dict(r) for r in cur.fetchall()]
     
     

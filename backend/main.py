@@ -16,9 +16,24 @@ def jobs(
     title: str = Query(...)
 ):
     try:
-        results = db.fetch_titles_with_input(title)
+        print(title)
+        query_results = db.fetch_titles_with_input(title)
         
-        return {"results": results}
+        results = []
+        for job in query_results:
+            results.append({
+                "company_name": job["company_name"],
+                "title": job["title"],
+                "location": job["location"],
+                "lat": job["lat"],
+                "long": job["long"],
+                "normalized_salary": job["salary"],
+                "original_listed_time": job["listed_time"],
+                "formatted_experience_level": job["experience_level"],
+                "formatted_work_type": job["work_type"]
+            })
+            
+        return {"result": results}
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
