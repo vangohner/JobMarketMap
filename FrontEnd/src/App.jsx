@@ -8,6 +8,7 @@ export default function App() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
+  const [filteredJob, setFilteredJob] = useState("")
 
   const onMapReady = (map) => { mapRef.current = map; };
 
@@ -45,6 +46,36 @@ export default function App() {
     onInitialQuery();
   }, []);
 
+  const callJobTitle = async () => {
+      setError(null);
+    try {
+      const response = await fetch(`/jobs/title?title={filteredJob}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No jobs found.");
+      }
+      setRows(data);
+
+      // Fit to data
+      const feats = toGeoJSON(data).features;
+      const map = mapRef.current;
+      if (map && feats.length) {
+        const b = new maplibregl.LngLatBounds();
+        for (const f of feats) b.extend(f.geometry.coordinates);
+        map.fitBounds(b, { padding: 60, duration: 600, maxZoom: 8 });
+      }
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <MapView rows={rows} onMapReady={onMapReady} />
@@ -81,6 +112,7 @@ export default function App() {
           disabled
           aria-disabled="true"
           title="UI only — wire this up to apply the filter"
+          onClick={callJobTitle}
         >
           Apply
         </button>
@@ -94,6 +126,7 @@ export default function App() {
         <input
           id="filter-job"
           type="text"
+          value={filteredJob}
           placeholder="e.g. blah blah blah"
           autoComplete="off"
           spellCheck={false}
