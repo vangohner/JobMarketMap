@@ -62,3 +62,13 @@ def fetch_jobs_in_bbox(lat_min, lat_max, lon_min, lon_max, limit=100):
         cur.execute(sql, (lat_min, lat_max, lon_min, lon_max, limit))
         return [dict(r) for r in cur.fetchall()]
 
+
+def fetch_titles_with_input(title):
+    sql = """
+    SELECT *
+    FROM jobs
+    WHERE title LIKE %{title}%
+    """
+    with get_cursor() as cur:
+        cur.execute(sql, (title))
+        return [dict(r) for r in cur.fetchall()]

@@ -11,6 +11,18 @@ app = FastAPI(title="Job Market API")
 def health():
     return {"status": "ok"}
 
+@app.get("/jobs/title")
+def jobs(
+    title: str = Query(...)
+):
+    try:
+        results = db.fetch_titles_with_input(title)
+        
+        return {"results": results}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/jobs")
 def jobs(
     city: Optional[str] = Query(None),
