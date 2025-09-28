@@ -9,6 +9,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
   const [filteredJob, setFilteredJob] = useState("")
+  const [filteredCompany, setFilteredCompany] = useState("")
 
   const onMapReady = (map) => { mapRef.current = map; };
 
@@ -46,6 +47,34 @@ export default function App() {
     onInitialQuery();
   }, []);
 
+  const callCompany = async () => {
+      setError(null);
+    try {
+      const response = await fetch(`/jobs/title?title=${filteredCompany}`);//NEED filteredCompany
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No companies found.");
+      }
+      setRows(data);
+
+      // Fit to data
+      const feats = toGeoJSON(data).features;
+      const map = mapRef.current;
+      if (map && feats.length) {
+        const b = new maplibregl.LngLatBounds();
+        for (const f of feats) b.extend(f.geometry.coordinates);
+        map.fitBounds(b, { padding: 60, duration: 600, maxZoom: 8 });
+      }
+    } catch (err) {
+      setError(String(err));
+    }
+  }
   const callJobTitle = async () => {
       setError(null);
     try {
@@ -77,6 +106,10 @@ export default function App() {
 
   const handleInputChange = (event) => {
     setFilteredJob(event.target.value); // update state on input change
+  };
+
+  const handleCompanyChange = (event) => {
+    setFilteredCompany(event.target.value); // update state on input change
   };
 
 
@@ -153,6 +186,8 @@ export default function App() {
           id="filter-company"
           type="text"
           placeholder="e.g. blah blah blah"
+          value={filteredCompany}
+          onChange={handleCompanyChange}
           autoComplete="off"
           spellCheck={false}
           style={{
