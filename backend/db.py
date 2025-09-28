@@ -72,3 +72,14 @@ def fetch_titles_with_input(title):
     with get_cursor() as cur:
         cur.execute(sql, (title))
         return [dict(r) for r in cur.fetchall()]
+    
+    
+def fetch_initial_everything():
+    sql = """
+    SELECT *
+    FROM jobs
+    """
+    
+    with get_cursor() as cur:
+        cur.execute(sql)
+        return [dict(r) for r in cur.fetchall()]

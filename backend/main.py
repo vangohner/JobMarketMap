@@ -70,3 +70,22 @@ def jobs_in_bbox(
         return {"results": results}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+    
+@app.get("/jobs/initial")
+def initial_query():
+    try:
+        query_results = db.fetch_initial_everything()
+        results = []
+        for job in query_results:
+            results.append({
+                "company_name": job["company_name"],
+                "title": job["title"],
+                "location": job["location"],
+                "lat": job["lat"],
+                "long": job["long"]
+            })
+            
+        return {"result": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
