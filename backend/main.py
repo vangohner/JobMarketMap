@@ -51,8 +51,10 @@ def initial_query():
                 "location": job["location"],
                 "lat": job["lat"],
                 "long": job["long"],
-                "salary": job["salary"],
-                "listed_time": job["listed_time"],
+                "normalized_salary": job["salary"],
+                "original_listed_time": job["listed_time"],
+                "formatted_experience_level": job["experience_level"],
+                "formatted_work_type": job["work_type"]
             })
             
         return {"result": results}

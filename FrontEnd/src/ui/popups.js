@@ -12,7 +12,7 @@ export function showPointPopup(map, popupRef, feature) {
     ${p.normalized_salary ? `<div>$${Number(p.normalized_salary).toLocaleString()}</div>` : ""}
     ${p.formatted_work_type ? `<div>${p.formatted_work_type}</div>` : ""}
     ${p.formatted_experience_level ? `<div>Level: ${p.formatted_experience_level}</div>` : ""}
-    ${p.original_listed_time ? `<div>Listed: ${new Date(Number(p.original_listed_time)).toLocaleDateString()}</div>` : ""}
+    ${p.original_listed_time ? `<div>Listed: ${new Date(p.original_listed_time).toLocaleDateString()}</div>` : ""}
     ${String(p.remote_allowed).trim() === "1" ? `<div>Remote allowed</div>` : ""}
   </div>`;
   popupRef.current?.remove();
