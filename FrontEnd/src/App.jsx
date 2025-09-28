@@ -1,22 +1,32 @@
 // src/App.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import maplibregl from "maplibre-gl";
 import MapView from "./components/MapView";
-import { parseJobsCSV } from "./loaders/csvLoader";
 import { toGeoJSON } from "./geo/geojson";
 
 export default function App() {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const mapRef = useRef(null);
+  const [filteredJob, setFilteredJob] = useState("")
+  const [filteredCompany, setFilteredCompany] = useState("")
 
   const onMapReady = (map) => { mapRef.current = map; };
 
-  const onCSVFile = async (file) => {
+  const onInitialQuery = async () => {
     setError(null);
     try {
-      const data = await parseJobsCSV(file);
-      if (!data.length) setError("No valid rows found. Check headers and data.");
+      const response = await fetch("/jobs/initial");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No jobs found.");
+      }
       setRows(data);
 
       // Fit to data
@@ -31,6 +41,77 @@ export default function App() {
       setError(String(err));
     }
   };
+
+  // CALL INITIAL QUERY ON MOUNT
+  useEffect(() => {
+    onInitialQuery();
+  }, []);
+
+  const callCompany = async () => {
+      setError(null);
+    try {
+      const response = await fetch(`/jobs/title?title=${filteredCompany}`);//NEED filteredCompany
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No companies found.");
+      }
+      setRows(data);
+
+      // Fit to data
+      const feats = toGeoJSON(data).features;
+      const map = mapRef.current;
+      if (map && feats.length) {
+        const b = new maplibregl.LngLatBounds();
+        for (const f of feats) b.extend(f.geometry.coordinates);
+        map.fitBounds(b, { padding: 60, duration: 600, maxZoom: 8 });
+      }
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+  const callJobTitle = async () => {
+      setError(null);
+    try {
+      const response = await fetch(`/jobs/filter?title=${filteredJob}&company=${filteredCompany}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No jobs found.");
+      }
+      setRows(data);
+
+      // Fit to data
+      const feats = toGeoJSON(data).features;
+      const map = mapRef.current;
+      if (map && feats.length) {
+        const b = new maplibregl.LngLatBounds();
+        for (const f of feats) b.extend(f.geometry.coordinates);
+        map.fitBounds(b, { padding: 60, duration: 600, maxZoom: 8 });
+      }
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  const handleInputChange = (event) => {
+    setFilteredJob(event.target.value); // update state on input change
+  };
+
+  const handleCompanyChange = (event) => {
+    setFilteredCompany(event.target.value); // update state on input change
+  };
+
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -52,29 +133,6 @@ export default function App() {
         }}
       >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>US Job Map</div>
-        <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
-          Load your CSV to populate the map.
-        </div>
-
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            const el = document.getElementById("chosen-file-info");
-            if (f) {
-              const kib = (f.size / 1024).toFixed(1);
-              if (el) el.textContent = `${f.name} • ${kib} KB`;
-              onCSVFile(f);
-            } else {
-              if (el) el.textContent = "No file selected";
-            }
-          }}
-          style={{ display: "block" }}
-        />
-        <div id="chosen-file-info" style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
-          No file selected
-        </div>
 
         <button
           type="button"
@@ -88,9 +146,8 @@ export default function App() {
             font: "13px system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
             cursor: "default",
           }}
-          disabled
-          aria-disabled="true"
           title="UI only — wire this up to apply the filter"
+          onClick={callJobTitle}
         >
           Apply
         </button>
@@ -104,6 +161,8 @@ export default function App() {
         <input
           id="filter-job"
           type="text"
+          onChange={handleInputChange}
+          value={filteredJob}
           placeholder="e.g. blah blah blah"
           autoComplete="off"
           spellCheck={false}
@@ -127,6 +186,8 @@ export default function App() {
           id="filter-company"
           type="text"
           placeholder="e.g. blah blah blah"
+          value={filteredCompany}
+          onChange={handleCompanyChange}
           autoComplete="off"
           spellCheck={false}
           style={{
