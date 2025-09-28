@@ -7,7 +7,8 @@ export const buildIndex = (pointsFC) => {
     maxZoom: 16,
     map: (p) => ({ titleCounts: { [p.title || "Job"]: 1 } }),
     reduce: (acc, p) => {
-      for (const [t, c] of Object.entries(p.titleCounts)) {
+      acc.titleCounts = acc.titleCounts ? { ...acc.titleCounts } : {};
+      for (const [t, c] of Object.entries(p.titleCounts || {})) {
         acc.titleCounts[t] = (acc.titleCounts[t] || 0) + c;
       }
     },
