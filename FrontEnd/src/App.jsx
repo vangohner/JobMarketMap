@@ -1,5 +1,5 @@
 // src/App.jsx
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import maplibregl from "maplibre-gl";
 import MapView from "./components/MapView";
 import { parseJobsCSV } from "./loaders/csvLoader";
@@ -12,11 +12,20 @@ export default function App() {
 
   const onMapReady = (map) => { mapRef.current = map; };
 
-  const onCSVFile = async (file) => {
+  const onInitialQuery = async () => {
     setError(null);
     try {
-      const data = await parseJobsCSV(file);
-      if (!data.length) setError("No valid rows found. Check headers and data.");
+      const response = await fetch("/jobs/initial");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+      const data = json.result || []; // matches your FastAPI return shape
+
+      if (!data.length) {
+        setError("No jobs found.");
+      }
       setRows(data);
 
       // Fit to data
@@ -31,6 +40,11 @@ export default function App() {
       setError(String(err));
     }
   };
+
+  // CALL INITIAL QUERY ON MOUNT
+  useEffect(() => {
+    onInitialQuery();
+  }, []);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -52,29 +66,6 @@ export default function App() {
         }}
       >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>US Job Map</div>
-        <div style={{ fontSize: 12, color: "#475569", marginBottom: 8 }}>
-          Load your CSV to populate the map.
-        </div>
-
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            const el = document.getElementById("chosen-file-info");
-            if (f) {
-              const kib = (f.size / 1024).toFixed(1);
-              if (el) el.textContent = `${f.name} • ${kib} KB`;
-              onCSVFile(f);
-            } else {
-              if (el) el.textContent = "No file selected";
-            }
-          }}
-          style={{ display: "block" }}
-        />
-        <div id="chosen-file-info" style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
-          No file selected
-        </div>
 
         <button
           type="button"
