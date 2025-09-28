@@ -2,7 +2,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import maplibregl from "maplibre-gl";
 import MapView from "./components/MapView";
-import { parseJobsCSV } from "./loaders/csvLoader";
 import { toGeoJSON } from "./geo/geojson";
 
 export default function App() {
